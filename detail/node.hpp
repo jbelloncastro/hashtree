@@ -23,7 +23,7 @@ template<
 	private:
 		typedef node< Types, hash_step, hash_offset+hash_step > next_node_type;
 		typedef std::unique_ptr< next_node_type > next_node_pointer;
-		typedef std::array< next_node_pointer, power(2,hash_step) > table;
+		typedef std::array< next_node_pointer, Types::cache_line_size/sizeof(next_node_pointer) > table;
 
 		static_assert( traits::is_multiple_of< sizeof(Types::hasher::result_type), hash_step >::value,
 		               "hash_step must be a exact divisor of the size of the hash" );
@@ -50,6 +50,11 @@ template<
 				next.reset( new next_node_type( hash_value, key ) );
 			}
 			return next->get( hash, key );
+		}
+		
+		void* operator new( std::size_t count )
+		{
+			return aligned_alloc( Types::cache_line_size, count * sizeof(node) );
 		}
 };
 
