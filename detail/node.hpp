@@ -6,6 +6,11 @@
 
 namespace unordered {
 namespace detail {
+	
+constexpr size_t power( size_t base, size_t exp )
+{
+	return exp==0?1: base*power(base,exp-1);
+}
 
 template<
     class Types,
@@ -18,7 +23,7 @@ template<
 	private:
 		typedef node< Types, hash_step, hash_offset+hash_step > next_node_type;
 		typedef std::unique_ptr< next_node_type > next_node_pointer;
-		typedef std::array< next_node_pointer, hash_width > table;
+		typedef std::array< next_node_pointer, power(2,hash_step) > table;
 
 		static_assert( traits::is_multiple_of< sizeof(Types::hasher::result_type), hash_step >::value,
 		               "hash_step must be a exact divisor of the size of the hash" );
