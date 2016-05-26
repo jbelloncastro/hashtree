@@ -2,6 +2,8 @@
 #ifndef HASH_TRIE_DETAIL_BUCKET
 #define HASH_TRIE_DETAIL_BUCKET
 
+#include "utils.hpp"
+
 namespace unordered {
 namespace detail {
 

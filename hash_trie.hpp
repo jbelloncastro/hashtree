@@ -3,11 +3,15 @@
 #define HASH_TRIE
 
 #include "detail/node.hpp"
+#include "detail/utils.hpp"
 
 #include <functional>
 #include <memory>
 
 namespace unordered {
+
+using namespace detail;
+using namespace detail::utils;
 
 template<
     class Key,
@@ -36,7 +40,13 @@ template<
 		//typedef const_local_iterator Constant local iterator;
 
 	private:
-		typedef node<hash_trie> node_type;
+		constexpr size_t hash_step = log(2, CACHE_LINE_SIZE/sizeof(Hash::result_type));
+
+		typedef node<
+			hash_trie,
+			hash_step,
+			sizeof(Hash::result_type)-hash_step
+		> node_type;
 
 		node_type _root;
 	public:

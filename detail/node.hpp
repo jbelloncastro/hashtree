@@ -3,37 +3,33 @@
 #define HASH_TRIE_DETAIL_NODE
 
 #include "bucket.hpp"
+#include "utils.hpp"
 
 namespace unordered {
 namespace detail {
-	
-constexpr size_t power( size_t base, size_t exp )
-{
-	return exp==0?1: base*power(base,exp-1);
-}
 
 template<
     class Types,
     std::size_t hash_step, // number of hash bits processed by each step
-    std::size_t hash_offset = sizeof(Types::hasher::result_type)-hash_step // current number of bits to offset the hash. default: start with hash value's MSBs
+    std::size_t hash_offset  // current number of bits to offset the hash. default: start with hash value's MSBs
 > class node {
 	public:
 		typedef Types::hasher hasher;
 
 	private:
-		typedef node< Types, hash_step, hash_offset+hash_step > next_node_type;
-		typedef std::unique_ptr< next_node_type > next_node_pointer;
-		typedef std::array< next_node_pointer, Types::cache_line_size/sizeof(next_node_pointer) > table;
+		typedef hasher::value_type hash_value_t;
 
-		static_assert( traits::is_multiple_of< sizeof(Types::hasher::result_type), hash_step >::value,
-		               "hash_step must be a exact divisor of the size of the hash" );
+		typedef node<
+			Types,
+			std::min(hash_step, hash_offset),
+			std::max(hash_offset-hash_step, 0)
+		> next_node_type;
+
+		typedef std::unique_ptr< next_node_type > next_node_pointer;
+
+		typedef std::array< next_node_pointer, power(2, hash_step) > table;
 
 		table _nextNodes;
-
-		static std::size_t compute_index( hasher::result_type hash_value )
-		{
-			return (hash_value >> hash_offset) & ((1<<hash_step)-1);
-		}
 
 	public:
 		node( hasher::result_type hash_value, const key_type& key ) :
@@ -54,7 +50,12 @@ template<
 		
 		void* operator new( std::size_t count )
 		{
-			return aligned_alloc( Types::cache_line_size, count * sizeof(node) );
+			return aligned_alloc( CACHE_LINE_SIZE, count * sizeof(node) );
+		}
+
+		std::size_t compute_index( hash_value_t hash_value )
+		{
+			return (hash_value >> hash_offset) & ((1<<hash_step)-1);
 		}
 };
 
