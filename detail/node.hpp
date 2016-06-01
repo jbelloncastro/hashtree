@@ -2,27 +2,31 @@
 #ifndef HASH_TRIE_DETAIL_NODE
 #define HASH_TRIE_DETAIL_NODE
 
+
 #include "bucket.hpp"
 #include "utils.hpp"
 
 namespace unordered {
 namespace detail {
 
+using namespace unordered::detail::utils;
+
 template<
     class Types,
     std::size_t hash_step, // number of hash bits processed by each step
     std::size_t hash_offset  // current number of bits to offset the hash. default: start with hash value's MSBs
-> class node {
+> class alignas(CACHE_LINE_SIZE) node {
 	public:
-		typedef Types::hasher hasher;
+		typedef typename Types::hasher hasher;
 
 	private:
-		typedef hasher::value_type hash_value_t;
+		typedef typename Types::hasher::result_type hash_value_t;
+		typedef typename Types::key_type key_type;
 
 		typedef node<
 			Types,
-			std::min(hash_step, hash_offset),
-			std::max(hash_offset-hash_step, 0)
+			min(hash_step, hash_offset),
+			max(hash_offset-hash_step, 0ul)
 		> next_node_type;
 
 		typedef std::unique_ptr< next_node_type > next_node_pointer;
@@ -32,25 +36,22 @@ template<
 		table _nextNodes;
 
 	public:
-		node( hasher::result_type hash_value, const key_type& key ) :
+		node() : _nextNodes() {}
+
+		node( hash_value_t hash_value, const key_type& key ) :
 			_nextNodes()
 		{
-			node_pointer& next = _nextNodes[ extract_index( hash_value ) ];
+			next_node_pointer& next = _nextNodes[ extract_index( hash_value ) ];
 			next.reset( new next_node_type( key ) );
 		}
 
-		Types::reference get( hasher::result_type hash_value, const key_type& key )
+		typename Types::reference get( hash_value_t hash_value, const key_type& key )
 		{
-			node_pointer& next = _nextNodes[ extract_index( hash_value ) ];
+			next_node_pointer& next = _nextNodes[ extract_index( hash_value ) ];
 			if( !next ) {
 				next.reset( new next_node_type( hash_value, key ) );
 			}
-			return next->get( hash, key );
-		}
-		
-		void* operator new( std::size_t count )
-		{
-			return aligned_alloc( CACHE_LINE_SIZE, count * sizeof(node) );
+			return next->get( hash_value, key );
 		}
 
 		std::size_t compute_index( hash_value_t hash_value )
@@ -63,29 +64,27 @@ template<
 template<
     class Types,
     std::size_t hash_step
-> class node<Types, hash_step, 0> {
+> class alignas(CACHE_LINE_SIZE) node<Types, hash_step, 0> {
 	public:
-		typedef Types::hasher hasher;
-		typedef Types::key_type key_type;
-		typedef Types::value_type value_type;
-		typedef Types::reference reference;
+		typedef typename Types::hasher hasher;
+		typedef typename Types::key_type key_type;
+		typedef typename Types::value_type value_type;
+		typedef typename Types::reference reference;
 
 	private:
-		static_assert( traits::is_multiple_of< sizeof(Types::hasher::result_type), hash_step >::value,
-		               "hash_step must be a exact divisor of the size of the hash" );
-
+		typedef typename Types::hasher::result_type hash_value_t;
 		typedef bucket<Types> bucket_type;
 
 		// Contains bucket
 		bucket_type _elements;
 
 	public:
-		node( hasher::result_type hash_value, const key_type& key ) :
+		node( hash_value_t hash_value, const key_type& key ) :
 			_elements( key )
 		{
 		}
 
-		reference get( hasher::result_type hash_value, const key_type& key )
+		reference get( hash_value_t hash_value, const key_type& key )
 		{
 			_elements.get( key );
 		}
@@ -95,4 +94,3 @@ template<
 } // namespace unordered
 
 #endif // HASH_TRIE_DETAIL_NODE
-
