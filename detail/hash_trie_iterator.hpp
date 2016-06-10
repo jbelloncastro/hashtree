@@ -19,13 +19,43 @@ public:
 	typedef typename Types::leaf_list list;
 	typedef typename list::iterator l1_iterator;
 	
-	hash_trie_iterator( list& l, const l1_iterator& it1, const l2_iterator& it2 ) : _list( &l ), _it1( it1 ), _it2( it2 ) {}
+	hash_trie_iterator( list& l, const l1_iterator& it1, const l2_iterator& it2 ) : _list( &l ), _it1( it1 ), _it2( it2 )
+	{
+		if ( _it1 != _list->end() && _it2 == (*_it1)->end() ) {
+			check_l2_not_end();
+		}
+	}
 	hash_trie_iterator( list& l, const l1_iterator& it1 ) : hash_trie_iterator( l, it1, it1 == l.cend() ? l2_iterator( nullptr ) : (*it1)->begin() ) {}
-	hash_trie_iterator( list& l ) : hash_trie_iterator( l, l.cend() ) {}
+	hash_trie_iterator( list& l ) : hash_trie_iterator( l, l.end() ) {}
+	hash_trie_iterator( const hash_trie_iterator& ref ) : hash_trie_iterator( *(ref._list), ref._it1, ref._it2 ) {}
 
 	hash_trie_iterator operator++()
 	{
 		++_it2;
+		check_l2_not_end();
+		return *this;
+	}
+
+	reference operator*() { return *_it2; }
+	pointer operator->() { return &(*_it2); }
+
+	bool operator==(const hash_trie_iterator& rhs) { return  _it1 == rhs._it1 && _it2 == rhs._it2; }
+	bool operator!=(const hash_trie_iterator& rhs) { return  _it1 != rhs._it1 || _it2 != rhs._it2; }
+	hash_trie_iterator erase() const
+	{
+		hash_trie_iterator ret( *this );
+		(*_it1)->remove( *_it2 );
+		return ++ret;
+	}
+private:
+	typedef list* list_ptr;
+	
+	list_ptr	_list;
+	l1_iterator	_it1;
+	l2_iterator 	_it2;
+
+	void check_l2_not_end()
+	{
 		while ( _it2 == ( *_it1 )->end() ) {
 			++_it1;
 			if ( _it1 != _list->end() ) {
@@ -35,21 +65,8 @@ public:
 				break;
 			}
 		}
-		return *this;
+
 	}
-
-	reference operator*() { return *_it2; }
-	pointer operator->() { return &(*_it2); }
-
-	bool operator==(const hash_trie_iterator& rhs) { return  _it1 == rhs._it1 && _it2 == rhs._it2; }
-	bool operator!=(const hash_trie_iterator& rhs) { return  _it1 != rhs._it1 || _it2 != rhs._it2; }
-
-private:
-	typedef list* list_ptr;
-	
-	list_ptr	_list;
-	l1_iterator	_it1;
-	l2_iterator 	_it2;
 };
 
 } // namespace detail

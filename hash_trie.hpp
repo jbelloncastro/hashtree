@@ -35,8 +35,9 @@ template<
 		typedef typename std::allocator_traits<Allocator>::pointer pointer_type;
 		typedef typename std::allocator_traits<Allocator>::const_pointer const_pointer_type;
 		typedef typename Hash::result_type hash_type;
-	
 		typedef hash_trie_iterator<hash_trie> iterator;
+		typedef const iterator const_iterator;
+		
 		typedef typename std::forward_list< value_type > value_list;
 		typedef value_list* value_list_ptr;
 		typedef typename std::forward_list< value_list_ptr > leaf_list;
@@ -70,8 +71,40 @@ template<
 			return ret;
 		}
 
-		iterator begin() { return iterator( _elems, _elems.begin() ); }
-		iterator end() { return iterator( _elems, _elems.end() ); }
+		iterator erase ( const_iterator position ) {
+			_elemCount--;
+			return position.erase();
+		}
+
+		iterator find ( const key_type& k )
+		{
+			return _root.find( _hasher( k ), k, _elems );
+		}
+
+		mapped_type& operator[] ( const key_type& k )
+		{
+			return _root.get( _hasher( k ), k, _elems ).second;
+		}
+
+		iterator begin()
+		{
+			return iterator( _elems, _elems.begin() );
+		}
+		
+		const_iterator cbegin()
+		{
+			return begin();
+		}
+		
+		iterator end()
+		{
+			return iterator( _elems, _elems.end() );
+		}
+
+		const_iterator cend()
+		{
+			return end();
+		}
 };
 
 } // namespace unordered

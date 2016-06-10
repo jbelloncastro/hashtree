@@ -19,8 +19,9 @@ template<
 > class alignas(CACHE_LINE_SIZE) node {
 	public:
 		typedef typename Types::hasher hasher;
-		typedef typename Types::iterator iterator;	
+		typedef typename Types::iterator iterator;
 		typedef typename Types::value_type value_type;
+		typedef typename Types::reference reference;
 		typedef typename Types::leaf_list leaf_list;
 
 	private:
@@ -43,13 +44,19 @@ template<
 		node() : _nextNodes() {}
 		node( leaf_list& list ) : _nextNodes() {}
 
-		typename Types::reference get( hash_value_t hash_value, const key_type& key )
+		iterator find( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			next_node_pointer& next = _nextNodes[ extract_index( hash_value ) ];
+			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			return next ? next->find( hash_value, key, list ) : iterator( list );
+		}
+
+		reference get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
 			if( !next ) {
-				next.reset( new next_node_type( hash_value, key ) );
+				next.reset( new next_node_type( list ) );
 			}
-			return next->get( hash_value, key );
+			return next->get( hash_value, key, list );
 		}
 
 		std::size_t compute_index( hash_value_t hash_value )
@@ -77,6 +84,7 @@ template<
 		typedef typename Types::hasher hasher;
 		typedef typename Types::key_type key_type;
 		typedef typename Types::value_type value_type;
+		typedef typename Types::mapped_type mapped_type;
 		typedef typename Types::reference reference;
 		typedef typename Types::value_list value_list;
 		typedef typename Types::iterator trie_iterator;
@@ -95,9 +103,23 @@ template<
 			_self = list.insert_after( list.before_begin(), &_elements );
 		}
 
-		reference get( hash_value_t hash_value, const key_type& key )
+		trie_iterator find( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			return _elements.get( key );
+			auto it = _elements.begin();
+			while ( it != _elements.end() && it->first != key ) ++it;
+			return it == _elements.end() ? trie_iterator( list ) : trie_iterator( list, _self, it );
+		}
+
+		reference get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			auto it = _elements.begin();
+			while ( it != _elements.end() && it->first != key ) ++it;
+			if ( it == _elements.end() ) {
+				value_type tmp( key, mapped_type() );
+				it = _elements.insert_after( _elements.before_begin(), tmp );	
+			}
+			return *it;
+
 		}
 
 		std::pair<trie_iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
