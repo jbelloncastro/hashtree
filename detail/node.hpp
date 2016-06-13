@@ -23,6 +23,7 @@ template<
 		typedef typename Types::value_type value_type;
 		typedef typename Types::reference reference;
 		typedef typename Types::leaf_list leaf_list;
+		typedef typename Types::size_type size_type;
 
 	private:
 		typedef typename Types::hasher::result_type hash_value_t;
@@ -73,6 +74,14 @@ template<
 			return next->insert( hash_value, value, list );
 		}
 
+		size_type erase( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			return next ? next->find( hash_value, key, list ) : 0;
+
+		}
+
+
 };
 
 // class specialization for leaf nodes (bucket)
@@ -89,6 +98,7 @@ template<
 		typedef typename Types::value_list value_list;
 		typedef typename Types::iterator trie_iterator;
 		typedef typename Types::leaf_list leaf_list;
+		typedef typename Types::size_type size_type;
 
 	private:
 		typedef typename Types::hasher::result_type hash_value_t;
@@ -135,6 +145,12 @@ template<
 			return std::make_pair( it2, inserted );
 		}
 
+		size_type erase( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			size_type count = 0;
+			_elements.remove_if([&key, &count](value_type value){ auto tmp = (value.first == key); count += tmp; return tmp; });
+			return count;
+		}
 };
 
 } // namespace detail

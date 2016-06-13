@@ -44,8 +44,8 @@ template<
 
 
 	private:
-		static constexpr size_t hash_step = log( ( hash_type )( 2 ), CACHE_LINE_SIZE/sizeof( hash_type ));
-		static constexpr size_t hash_offset = sizeof( hash_type )-hash_step;
+		static constexpr size_type hash_step = log( ( hash_type )( 2 ), CACHE_LINE_SIZE/sizeof( hash_type ));
+		static constexpr size_type hash_offset = sizeof( hash_type )-hash_step;
 		typedef node<
 			hash_trie,
 			hash_step,
@@ -74,6 +74,11 @@ template<
 		iterator erase ( const_iterator position ) {
 			_elemCount--;
 			return position.erase();
+		}
+
+		size_type erase ( const key_type& k )
+		{
+			return _root.erase( _hasher( k ), k, _elems );
 		}
 
 		iterator find ( const key_type& k )
