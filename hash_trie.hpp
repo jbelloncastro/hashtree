@@ -4,9 +4,9 @@
 #include "detail/node.hpp"
 #include "detail/utils.hpp"
 #include "detail/hash_trie_iterator.hpp"
-//#include "lockfree-forward_list/lockfree/forward_list.hpp"
+#include "lockfree-forward_list/lockfree/forward_list.hpp"
 
-#include <forward_list>
+//#include <forward_list>
 #include <functional>
 #include <memory>
 #include <atomic>
@@ -41,9 +41,9 @@ template<
 		typedef hash_trie_iterator<hash_trie> iterator;
 		typedef const iterator const_iterator;
 
-		typedef typename std::forward_list< value_type > value_list;
+		typedef typename ads::forward_list< value_type > value_list;
 		typedef value_list* value_list_ptr;
-		typedef typename std::forward_list< value_list_ptr > leaf_list;
+		typedef typename ads::forward_list< value_list_ptr > leaf_list;
 
 
 	private:

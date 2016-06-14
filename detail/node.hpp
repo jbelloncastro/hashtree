@@ -138,29 +138,38 @@ template<
 
 		std::pair<trie_iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			auto it = _elements.begin();
-			while ( it != _elements.end() && it->first != key ) ++it;
+			auto it = _elements.before_begin();
+			auto itNext = _elements.begin();
+			while ( itNext != _elements.end() && itNext->first != key ) { ++it; ++itNext; }
 			bool inserted = false;
-			if ( it == _elements.end() ) {
-				value_type tmp( key, mapped_type() );
-				it = _elements.insert_after( _elements.before_begin(), tmp );
-				inserted = true;
+			if ( itNext == _elements.end() ) {
+				value_type value( key, mapped_type() );
+				itNext = _elements.try_insert_after( it, itNext, value );
+				inserted = itNext != _elements.end();
+				if ( !inserted ) {
+					while ( it != _elements.end() && it->first != key ) ++it;
+					itNext = it;
+				}
 			}
-			trie_iterator it2 = trie_iterator( list, _self, it );
+			trie_iterator it2 = trie_iterator( list, _self, itNext );
 			return std::make_pair( it2, inserted );
-
 		}
 
 		std::pair<trie_iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
 		{
-			auto it = _elements.begin();
-			while ( it != _elements.end() && it->first != value.first ) ++it;
+			auto it = _elements.before_begin();
+			auto itNext = _elements.begin();
+			while ( itNext != _elements.end() && itNext->first != value.first ) { ++it; ++itNext; }
 			bool inserted = false;
-			if ( it == _elements.end() ) {
-				it = _elements.insert_after( _elements.before_begin(), value );
-				inserted = true;
+			if ( itNext == _elements.end() ) {
+				itNext = _elements.try_insert_after( it, itNext, value );
+				inserted = itNext != _elements.end();
+				if ( !inserted ) {
+					while ( it != _elements.end() && it->first != value.first ) ++it;
+					itNext = it;
+				}
 			}
-			trie_iterator it2 = trie_iterator( list, _self, it );
+			trie_iterator it2 = trie_iterator( list, _self, itNext );
 			return std::make_pair( it2, inserted );
 		}
 
