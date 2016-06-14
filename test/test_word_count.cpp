@@ -7,9 +7,18 @@
 #include <atomic>
 #include <stdlib.h>     /* exit */
 #include <assert.h>     /* assert */
+#include "../hash_trie.hpp"
 
 typedef std::chrono::high_resolution_clock hrclock_t;
 typedef hrclock_t::time_point ticks_t;
+
+struct atomic_unsigned : std::atomic<unsigned int>
+{
+    atomic_unsigned() {}
+    atomic_unsigned( const atomic_unsigned& ref ) {
+        this->store( ref.load() );
+    }
+};
 
 constexpr double elapsed( const ticks_t& ini, const ticks_t& end ) {
    return std::chrono::duration_cast< std::chrono::duration<double> >( end - ini ).count();
@@ -111,5 +120,6 @@ int main( int argc, char* argv[] ) {
    if ( argc < 2 ) {
       usage( argv[0] );
    }
-   runTest< std::unordered_map< std::string, std::atomic<unsigned int> > >( argv[1] );
+   //runTest< std::unordered_map< std::string, std::atomic<unsigned int> > >( argv[1] );
+   runTest< unordered::hash_trie< std::string, atomic_unsigned > >( argv[1] );
 }

@@ -1,0 +1,3 @@
+[submodule "lockfree-forward_list"]
+	path = lockfree-forward_list
+	url = https://github.com/jbelloncastro/lockfree-forward_list

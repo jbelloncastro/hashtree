@@ -1,11 +1,10 @@
 #ifndef HASH_TRIE_DETAIL_NODE
 #define HASH_TRIE_DETAIL_NODE
 
+#include "utils.hpp"
+
 #include<iostream>
 #include<memory>
-#include<forward_list>
-
-#include "utils.hpp"
 
 namespace unordered {
 namespace detail {
@@ -35,48 +34,65 @@ template<
 			max(hash_offset-hash_step, 0ul)
 		> next_node_type;
 
-		typedef std::unique_ptr< next_node_type > next_node_pointer;
+		typedef next_node_type* next_node_pointer;
+		typedef std::atomic< next_node_pointer > next_node_pointer_atomic;
 
-		typedef std::array< next_node_pointer, power(2, hash_step) > table;
+		typedef std::array< next_node_pointer_atomic, power(2, hash_step) > table;
 
 		table _nextNodes;
 
 	public:
-		node() : _nextNodes() {}
-		node( leaf_list& list ) : _nextNodes() {}
+		node() : _nextNodes()
+		{
+			for ( size_t i = 0; i < _nextNodes.size(); ++i ) {
+				_nextNodes[i] = nullptr;
+			}
+		}
+
+		node( leaf_list& list ) : node() {}
 
 		iterator find( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			next_node_pointer next = _nextNodes[ compute_index( hash_value ) ];
 			return next ? next->find( hash_value, key, list ) : iterator( list );
 		}
 
-		reference get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		std::pair<iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			size_type index = compute_index( hash_value );
+			next_node_pointer next = _nextNodes[index];
 			if( !next ) {
-				next.reset( new next_node_type( list ) );
+				next_node_pointer newNext = new next_node_type( list );
+				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
+					delete newNext;
+				}
+				next = _nextNodes[index];
 			}
 			return next->get( hash_value, key, list );
 		}
 
-		std::size_t compute_index( hash_value_t hash_value )
+		size_type compute_index( hash_value_t hash_value )
 		{
 			return (hash_value >> hash_offset) & ((1<<hash_step)-1);
 		}
 
 		std::pair<iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
 		{
-			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			size_type index = compute_index( hash_value );
+			next_node_pointer next = _nextNodes[index];
 			if( !next ) {
-				next.reset( new next_node_type( list ) );
+				next_node_pointer newNext = new next_node_type( list );
+				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
+					delete newNext;
+				}
+				next = _nextNodes[index];
 			}
 			return next->insert( hash_value, value, list );
 		}
 
 		size_type erase( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			next_node_pointer& next = _nextNodes[ compute_index( hash_value ) ];
+			next_node_pointer next = _nextNodes[ compute_index( hash_value ) ];
 			return next ? next->find( hash_value, key, list ) : 0;
 
 		}
@@ -120,15 +136,18 @@ template<
 			return it == _elements.end() ? trie_iterator( list ) : trie_iterator( list, _self, it );
 		}
 
-		reference get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		std::pair<trie_iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
 			auto it = _elements.begin();
 			while ( it != _elements.end() && it->first != key ) ++it;
+			bool inserted = false;
 			if ( it == _elements.end() ) {
 				value_type tmp( key, mapped_type() );
-				it = _elements.insert_after( _elements.before_begin(), tmp );	
+				it = _elements.insert_after( _elements.before_begin(), tmp );
+				inserted = true;
 			}
-			return *it;
+			trie_iterator it2 = trie_iterator( list, _self, it );
+			return std::make_pair( it2, inserted );
 
 		}
 
@@ -138,7 +157,7 @@ template<
 			while ( it != _elements.end() && it->first != value.first ) ++it;
 			bool inserted = false;
 			if ( it == _elements.end() ) {
-				it = _elements.insert_after( _elements.before_begin(), value );	
+				it = _elements.insert_after( _elements.before_begin(), value );
 				inserted = true;
 			}
 			trie_iterator it2 = trie_iterator( list, _self, it );

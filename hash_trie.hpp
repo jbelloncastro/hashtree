@@ -4,9 +4,12 @@
 #include "detail/node.hpp"
 #include "detail/utils.hpp"
 #include "detail/hash_trie_iterator.hpp"
+//#include "lockfree-forward_list/lockfree/forward_list.hpp"
 
+#include <forward_list>
 #include <functional>
 #include <memory>
+#include <atomic>
 
 namespace unordered {
 
@@ -37,15 +40,16 @@ template<
 		typedef typename Hash::result_type hash_type;
 		typedef hash_trie_iterator<hash_trie> iterator;
 		typedef const iterator const_iterator;
-		
+
 		typedef typename std::forward_list< value_type > value_list;
 		typedef value_list* value_list_ptr;
 		typedef typename std::forward_list< value_list_ptr > leaf_list;
 
 
 	private:
+		typedef typename std::atomic<std::size_t> atomic_size_t;
 		static constexpr size_type hash_step = log( ( hash_type )( 2 ), CACHE_LINE_SIZE/sizeof( hash_type ));
-		static constexpr size_type hash_offset = sizeof( hash_type )-hash_step;
+		static constexpr size_type hash_offset = sizeof( hash_type )*8-hash_step;
 		typedef node<
 			hash_trie,
 			hash_step,
@@ -53,7 +57,7 @@ template<
 		> node_type;
 
 		node_type	_root;
-                size_type	_elemCount;
+		atomic_size_t	_elemCount;
 		Hash		_hasher;
 		leaf_list	_elems;
 	public:
@@ -71,14 +75,17 @@ template<
 			return ret;
 		}
 
-		iterator erase ( const_iterator position ) {
+		iterator erase ( const_iterator position )
+		{
 			_elemCount--;
 			return position.erase();
 		}
 
 		size_type erase ( const key_type& k )
 		{
-			return _root.erase( _hasher( k ), k, _elems );
+			size_type cnt = _root.erase( _hasher( k ), k, _elems );
+			_elemCount -= cnt;
+			return cnt;
 		}
 
 		iterator find ( const key_type& k )
@@ -88,19 +95,21 @@ template<
 
 		mapped_type& operator[] ( const key_type& k )
 		{
-			return _root.get( _hasher( k ), k, _elems ).second;
+			std::pair<iterator,bool> ret = _root.get( _hasher( k ), k, _elems );
+			_elemCount += ret.second;
+			return ret.first->second;
 		}
 
 		iterator begin()
 		{
 			return iterator( _elems, _elems.begin() );
 		}
-		
+
 		const_iterator cbegin()
 		{
 			return begin();
 		}
-		
+
 		iterator end()
 		{
 			return iterator( _elems, _elems.end() );
