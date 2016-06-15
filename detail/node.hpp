@@ -51,24 +51,12 @@ template<
 
 		node( leaf_list& list ) : node() {}
 
+		void push_list( leaf_list& list ) {}
+
 		iterator find( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
 			next_node_pointer next = _nextNodes[ compute_index( hash_value ) ];
 			return next ? next->find( hash_value, key, list ) : iterator( list );
-		}
-
-		std::pair<iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
-		{
-			size_type index = compute_index( hash_value );
-			next_node_pointer next = _nextNodes[index];
-			if( !next ) {
-				next_node_pointer newNext = new next_node_type( list );
-				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
-					delete newNext;
-				}
-				next = _nextNodes[index];
-			}
-			return next->get( hash_value, key, list );
 		}
 
 		size_type compute_index( hash_value_t hash_value )
@@ -84,6 +72,8 @@ template<
 				next_node_pointer newNext = new next_node_type( list );
 				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
 					delete newNext;
+				} else {
+					newNext->push_list( list );
 				}
 				next = _nextNodes[index];
 			}
@@ -124,8 +114,9 @@ template<
 		value_list		_elements;
 		leaf_list_iterator	_self;
 	public:
-		node( leaf_list& list ) : _elements()
-		{
+		node( leaf_list& list ) : _elements(), _self() {}
+
+		void push_list( leaf_list& list ) {
 			_self = list.insert_after( list.before_begin(), &_elements );
 		}
 
@@ -136,39 +127,22 @@ template<
 			return it == _elements.end() ? trie_iterator( list ) : trie_iterator( list, _self, it );
 		}
 
-		std::pair<trie_iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
-		{
-			auto it = _elements.before_begin();
-			auto itNext = _elements.begin();
-			while ( itNext != _elements.end() && itNext->first != key ) { ++it; ++itNext; }
-			bool inserted = false;
-			if ( itNext == _elements.end() ) {
-				value_type value( key, mapped_type() );
-				itNext = _elements.try_insert_after( it, itNext, value );
-				inserted = itNext != _elements.end();
-				if ( !inserted ) {
-					while ( it != _elements.end() && it->first != key ) ++it;
-					itNext = it;
-				}
-			}
-			trie_iterator it2 = trie_iterator( list, _self, itNext );
-			return std::make_pair( it2, inserted );
-		}
-
 		std::pair<trie_iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
 		{
 			auto it = _elements.before_begin();
 			auto itNext = _elements.begin();
-			while ( itNext != _elements.end() && itNext->first != value.first ) { ++it; ++itNext; }
 			bool inserted = false;
-			if ( itNext == _elements.end() ) {
-				itNext = _elements.try_insert_after( it, itNext, value );
-				inserted = itNext != _elements.end();
-				if ( !inserted ) {
-					while ( it != _elements.end() && it->first != value.first ) ++it;
-					itNext = it;
+			do {
+				while ( itNext != _elements.end() && itNext->first != value.first ) { ++it; ++itNext; }
+				if ( itNext == _elements.end() ) {
+					itNext = _elements.try_insert_after( it, itNext, value );
+					inserted = itNext != _elements.end();
+					if ( !inserted ) {
+						itNext = it;
+						++itNext;
+					}
 				}
-			}
+			} while ( itNext == _elements.end() );
 			trie_iterator it2 = trie_iterator( list, _self, itNext );
 			return std::make_pair( it2, inserted );
 		}
