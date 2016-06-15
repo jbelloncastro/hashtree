@@ -13,6 +13,18 @@ test_word_count: test_word_count.cpp
 test_word_count_omp: test_word_count.cpp
 	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
 
+test_insert: test_insert.cpp
+	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
+
+test_insert_omp: test_insert.cpp
+	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
+
+test_insert_rand: test_insert_rand.cpp
+	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
+
+test_insert_rand_omp: test_insert_rand.cpp
+	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
+
 run: test_word_count test_node input/hamlet.txt input/big.txt
 	./test_node
 	./test_word_count input/hamlet.txt
