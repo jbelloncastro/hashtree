@@ -80,6 +80,22 @@ template<
 			return next->insert( hash_value, value, list );
 		}
 
+		std::pair<iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			size_type index = compute_index( hash_value );
+			next_node_pointer next = _nextNodes[index];
+			if( !next ) {
+				next_node_pointer newNext = new next_node_type( list );
+				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
+					delete newNext;
+				} else {
+					newNext->push_list( list );
+				}
+				next = _nextNodes[index];
+			}
+			return next->get( hash_value, key, list );
+		}
+
 		size_type erase( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
 			next_node_pointer next = _nextNodes[ compute_index( hash_value ) ];
@@ -136,6 +152,26 @@ template<
 				while ( itNext != _elements.end() && itNext->first != value.first ) { ++it; ++itNext; }
 				if ( itNext == _elements.end() ) {
 					itNext = _elements.try_insert_after( it, itNext, value );
+					inserted = itNext != _elements.end();
+					if ( !inserted ) {
+						itNext = it;
+						++itNext;
+					}
+				}
+			} while ( itNext == _elements.end() );
+			trie_iterator it2 = trie_iterator( list, _self, itNext );
+			return std::make_pair( it2, inserted );
+		}
+
+		std::pair<trie_iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
+		{
+			auto it = _elements.before_begin();
+			auto itNext = _elements.begin();
+			bool inserted = false;
+			do {
+				while ( itNext != _elements.end() && itNext->first != key ) { ++it; ++itNext; }
+				if ( itNext == _elements.end() ) {
+					itNext = _elements.try_emplace_after( it, itNext, key, mapped_type() );
 					inserted = itNext != _elements.end();
 					if ( !inserted ) {
 						itNext = it;

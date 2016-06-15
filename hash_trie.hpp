@@ -95,8 +95,7 @@ template<
 
 		mapped_type& operator[] ( const key_type& k )
 		{
-			value_type value( k, mapped_type() );
-			std::pair<iterator,bool> ret = _root.insert( _hasher( k ), value, _elems );
+			std::pair<iterator,bool> ret = _root.get( _hasher( k ), k, _elems );
 			_elemCount += ret.second;
 			return ret.first->second;
 		}
