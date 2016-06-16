@@ -51,6 +51,13 @@ template<
 
 		node( leaf_list& list ) : node() {}
 
+		~node() {
+			for( unsigned i = 0; i < _nextNodes.size(); ++i ) {
+				if( _nextNodes[i] )
+					delete _nextNodes[i];
+			}
+		}
+
 		void push_list( leaf_list& list ) {}
 
 		iterator find( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
@@ -64,35 +71,32 @@ template<
 			return (hash_value >> hash_offset) & ((1<<hash_step)-1);
 		}
 
-		std::pair<iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
+		next_node_pointer get_node( const hash_value_t& hash_value, leaf_list& list )
 		{
 			size_type index = compute_index( hash_value );
 			next_node_pointer next = _nextNodes[index];
 			if( !next ) {
 				next_node_pointer newNext = new next_node_type( list );
-				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
-					delete newNext;
-				} else {
+				bool inserted = _nextNodes[index].compare_exchange_strong( next, newNext );
+				if ( inserted ) {
 					newNext->push_list( list );
+					next = newNext;
+				} else {
+					delete newNext;
 				}
-				next = _nextNodes[index];
 			}
+			return next;
+		}
+
+		std::pair<iterator,bool> insert( const hash_value_t& hash_value, const value_type& value, leaf_list& list )
+		{
+			next_node_pointer next = get_node( hash_value, list );
 			return next->insert( hash_value, value, list );
 		}
 
 		std::pair<iterator,bool> get( const hash_value_t& hash_value, const key_type& key, leaf_list& list )
 		{
-			size_type index = compute_index( hash_value );
-			next_node_pointer next = _nextNodes[index];
-			if( !next ) {
-				next_node_pointer newNext = new next_node_type( list );
-				if ( !_nextNodes[index].compare_exchange_strong( next, newNext ) ) {
-					delete newNext;
-				} else {
-					newNext->push_list( list );
-				}
-				next = _nextNodes[index];
-			}
+			next_node_pointer next = get_node( hash_value, list );
 			return next->get( hash_value, key, list );
 		}
 

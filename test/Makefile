@@ -1,6 +1,6 @@
 CXX=g++
 CPPFLAGS=
-CXXFLAGS=-std=c++11 -O3 -g
+CXXFLAGS=-std=c++11 -O3
 OMP_FLAGS=-fopenmp
 
 tests=test_word_count test_insert test_insert_rand
