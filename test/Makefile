@@ -1,34 +1,26 @@
-CXX_FLAGS=-std=c++11
+CXX=g++
+CPPFLAGS=
+CXXFLAGS=-std=c++11 -O3 -g
 OMP_FLAGS=-fopenmp
-INCLUDES=
 
-all: test_node test_word_count
+tests=test_word_count test_insert test_insert_rand
 
-test_node: test_node.cpp
-	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
+all: sequential openmp
 
-test_word_count: test_word_count.cpp
-	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
+sequential: $(tests)
+openmp: $(addsuffix _omp,$(tests))
 
-test_word_count_omp: test_word_count.cpp
-	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
+%_omp: CXXFLAGS+=$(OMP_FLAGS)
 
-test_insert: test_insert.cpp
-	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
+%: %.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@
 
-test_insert_omp: test_insert.cpp
-	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
+%_omp: %.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@
 
-test_insert_rand: test_insert_rand.cpp
-	$(CXX) $(CXX_FLAGS) $(INCLUDES) $^ -o $@
-
-test_insert_rand_omp: test_insert_rand.cpp
-	$(CXX) $(CXX_FLAGS) $(OMP_FLAGS) $(INCLUDES) $^ -o $@
-
-run: test_word_count test_node input/hamlet.txt input/big.txt
-	./test_node
+run: test_word_count input/hamlet.txt input/big.txt
 	./test_word_count input/hamlet.txt
 	./test_word_count input/big.txt
 
 clean:
-	rm -rf test_word_count test_word_count_omp test_node
+	rm -rf test_{word_count,node,insert,insert_rand}{,_omp}
