@@ -14,7 +14,7 @@ typedef hrclock_t::time_point ticks_t;
 
 struct atomic_unsigned : std::atomic<unsigned int>
 {
-    atomic_unsigned() {}
+    atomic_unsigned() { this->store( 0 ); }
     atomic_unsigned( const atomic_unsigned& ref ) {
         this->store( ref.load() );
     }
@@ -30,7 +30,7 @@ void usage( const char argv0[] ) {
 }
 
 template <class Container>
-void runTest( char* inputFile ) {
+void runTest( char* inputFile, bool critical ) {
    std::cout << "----------- Starting Benchmark -----------" << std::endl;
    std::vector<std::string> lines;
    Container map;
@@ -57,18 +57,35 @@ void runTest( char* inputFile ) {
    ticks_t t2 = hrclock_t::now();
 
    /* ----- Process the lines ----- */
-   #pragma omp parallel for shared( map ) reduction( + : rawWords )
-   for ( unsigned int idx = 0; idx < lines.size(); ++idx ) {
-      // Ignore comment lines
-      if ( lines[idx][0] == '#' || lines[idx][0] == '*' ) continue;
+   if (critical) {
+       std::cout << " Using critical inside parallel for" << std::endl;
+       #pragma omp parallel for shared( map ) reduction( + : rawWords )
+       for ( unsigned int idx = 0; idx < lines.size(); ++idx ) {
+          // Ignore comment lines
+          if ( lines[idx][0] == '#' || lines[idx][0] == '*' ) continue;
 
-      std::stringstream wordsStream;
-      wordsStream << lines[idx];
-      for ( std::string word; wordsStream >> word; ) {
-         #pragma omp critical ///< Since the values are atomic the critical is only needed if the map is not thread-safe
-         map[word]++;
-         ++rawWords;
-      }
+          std::stringstream wordsStream;
+          wordsStream << lines[idx];
+          for ( std::string word; wordsStream >> word; ) {
+             #pragma omp critical ///< Since the values are atomic the critical is only needed if the map is not thread-safe
+             map[word]++;
+             ++rawWords;
+          }
+       }
+   } else {
+       std::cout << " Without critical inside parallel for" << std::endl;
+       #pragma omp parallel for shared( map ) reduction( + : rawWords )
+       for ( unsigned int idx = 0; idx < lines.size(); ++idx ) {
+          // Ignore comment lines
+          if ( lines[idx][0] == '#' || lines[idx][0] == '*' ) continue;
+
+          std::stringstream wordsStream;
+          wordsStream << lines[idx];
+          for ( std::string word; wordsStream >> word; ) {
+             map[word]++;
+             ++rawWords;
+          }
+       }
    }
    /* --- END Process the lines --- */
 
@@ -103,6 +120,7 @@ void runTest( char* inputFile ) {
    std::cout << "   | " << moreFreq[2].first << " (" << moreFreq[2].second << " times)" << std::endl;
 
    std::cout << "----------- Benchmark results -----------" << std::endl;
+   std::cerr << elapsed( t2, t3 ) << " seconds\t " << ( ( double )( lines.size() ) / elapsed( t2, t3 ) ) << " lines/s" << std::endl;
    std::cout << " Input file parsing:" << std::endl;
    std::cout << "   | " << elapsed( t0, t1 ) << " s" << std::endl;
    std::cout << "   | " << ( ( double )( rawLines ) / elapsed( t0, t1 ) ) << " lines/s" << std::endl;
@@ -120,6 +138,6 @@ int main( int argc, char* argv[] ) {
    if ( argc < 2 ) {
       usage( argv[0] );
    }
-   //runTest< std::unordered_map< std::string, std::atomic<unsigned int> > >( argv[1] );
-   runTest< unordered::hash_trie< std::string, atomic_unsigned > >( argv[1] );
+   runTest< std::unordered_map< std::string, atomic_unsigned > >( argv[1], true );
+   runTest< unordered::hash_trie< std::string, atomic_unsigned > >( argv[1], false );
 }
