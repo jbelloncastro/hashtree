@@ -31,7 +31,7 @@ template<
 		typedef node<
 			Types,
 			min(hash_step, hash_offset),
-			max(hash_offset-hash_step, 0ul)
+			(hash_offset>hash_step ? hash_offset-hash_step : 0ul)
 		> next_node_type;
 
 		typedef next_node_type* next_node_pointer;
